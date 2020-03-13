@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from json import dump, dumps, load, loads
 from functools import wraps
 from traceback import format_exc
+from collections import defaultdict
 
 # Output to stderr instead of stdout
 def eprint(*args, **kwargs):
@@ -87,3 +88,7 @@ def trap(callback):
         return wrapper_trap
 
     return decorator_trap
+
+# Arbitrary depth dict that returns an empty dict if key is not set
+def infinitedict():
+    return defaultdict(infinitedict)
