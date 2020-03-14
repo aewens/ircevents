@@ -95,23 +95,23 @@ class Engine:
             # Returns both the key and value to return like a dict
             yield (attr_name, attribute)
 
-    def _apply_mutations(self):
+    def _apply_mutations(self, raw):
         """
         Applies mutations and passes them on as generator
         """
 
         for using in self._using:
-            mutation = using.callback(raw_line)
+            mutation = using.callback(raw)
             self._mutations[using.namespace] = mutation 
             yield (using, mutation)
 
-    def _process_mutations(self, requires, skip_whens):
+    def _process_mutations(self, raw, requires, skip_whens):
         """
         Run all mutation variables against callbacks to see if applicable
         """
 
-        for (using, mutation) in self._apply_mutations():
-            for (key, value} in self._get_variables(mutation):
+        for (using, mutation) in self._apply_mutations(raw):
+            for (key, value) in self._get_variables(mutation):
                 for using_whens in self._whens_map[key]:
                     for using_when in using_whens:
                         # Already been triggers, skip
@@ -163,8 +163,8 @@ class Engine:
 
         trigger_when = True
 
-        # Use magic _always pair to always trigger callback
-        if when.get("_always") is True:
+        # Use magic pair to always trigger callback
+        if when.get("always_run") is True:
             return trigger_when
 
         # Check if conditions match mutation
@@ -212,6 +212,7 @@ class Engine:
 
         Mutation = namedtuple("Mutation", ["name", "callback"])
         self._using.add(Mutation(namespace, callback))
+        self._namespaces.add(namespace)
 
     def when(self, namespace=None, **when_kwargs): 
         """
@@ -222,7 +223,7 @@ class Engine:
 
         # Namespaces are optional if only one is given
         if namespace is None and len(self._namespaces) == 1:
-            namespace = self._namespaces[0]
+            namespace = list(self._namespaces)[0]
 
         assert namespace in self._namespaces, f"Invalid namespace: {namespace}"
 
@@ -238,7 +239,7 @@ class Engine:
         self._whens_namespaces[whens_name] = namespace
 
         # Map keys to name to optimize processing time
-        for when_key in whens.keys():
+        for when_key in whens._fields:
             self._whens_map[when_key].add(whens_name)
 
         def decorator_when(func):
@@ -260,7 +261,7 @@ class Engine:
 
         requires = dict()
         skip_whens = set()
-        self._process_mutations(requires, skip_whens)
+        self._process_mutations(raw_line, requires, skip_whens)
 
     def pre_process(self, callback, *args, **kwargs):
         """
