@@ -1,6 +1,6 @@
 from .helpers import infinitedict, trap
 
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from collections.abc import Iterable
 from functools import wraps
 from threading import Thread, Event
