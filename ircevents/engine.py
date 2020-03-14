@@ -7,11 +7,11 @@ from queue import Queue, Empty
 from random import choices
 from string import ascii_lowercase
 
-def noop(source):
+def noop(*args, **kwargs):
     """
     Performs no operation, used as a default placeholder function
     """
-    return None
+    pass
 
 def dict2tuple(dictionary):
     """
@@ -51,7 +51,17 @@ class Engine:
         self._source = source
         self._using = set()
 
+        self._pre_callback = noop
+        self._pre_args = tuple()
+        self._pre_kwargs = dict()
+
+        self._post_callback = noop
+        self._post_args = tuple()
+        self._post_kwargs = dict()
+
         self._recv_callback = noop
+        self._recv_args = tuple()
+        self._recv_kwargs = dict()
 
         self._states = defaultdict(lambda: StateManager())
 
@@ -61,6 +71,7 @@ class Engine:
         self._whens_namespaces = dict()
         self._whens_map = defaultdict(set)
 
+        self._running = Event()
         self._events = Queue()
         self._actions = Queue()
 
@@ -81,6 +92,12 @@ class Engine:
 
             # Returns both the key and value to return like a dict
             yield (attr_name, attribute)
+
+    def ns_get(self, namespace, key):
+        self._states[namespace].get(key)
+
+    def ns_set(self, namespace, key, value):
+        self._states[namespace].set(key, value)
 
     def use(self, namespace, callback):
         """
@@ -164,3 +181,35 @@ class Engine:
 
                             # Run callback using mutation data and state manager
                             func(data, state)
+
+    def pre_process(self, callback, *args, **kwargs):
+        assert callable(callback), f"Expected function but got: {callback}"
+        self._pre_callback = callback
+        self._pre_args = args
+        self._pre_kwargs = kwargs
+
+    def post_process(self, callback, *args, **kwargs):
+        assert callable(callback), f"Expected function but got: {callback}"
+        self._post_callback = callback
+        self._post_args = args
+        self._post_kwargs = kwargs
+
+    def recv_with(self, callback, *args, **kwargs):
+        assert callable(callback), f"Expected function but got: {callback}"
+        self._recv_callback = callback
+        self._recv_args = args
+        self._recv_kwargs = kwargs
+
+    def stop(self):
+        self._running.set()
+
+    def run(self):
+        # Run until stopped
+        while not self._running.is_set():
+            self._pre_callback(*self._pre_args, **self._pre_kwargs)
+
+            raw_text = self._recv_callback(self._source, *self._recv_args,
+                **self._recv_kwargs)
+            self.process(raw_text)
+
+            self._post_callback(*self._post_args, **self._post_kwargs)
