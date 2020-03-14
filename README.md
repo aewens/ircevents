@@ -10,7 +10,6 @@ import ircstates, ircevents, socket
 
 # Connection settings
 NICK = "nickname"
-CHAN = "#chan"
 HOST = "127.0.0.1"
 POST = 6667
 
