@@ -148,6 +148,7 @@ class Engine:
         mutations = dict()
         requires = dict()
         triggered_whens = set()
+        skip_whens = set()
 
         # Apply mutations
         for using in self._using:
@@ -157,7 +158,7 @@ class Engine:
                 for using_whens in self._whens_map[key]:
                     for using_when in using_whens:
                         # Already been triggers, skip
-                        if using_when in triggered_whens:
+                        if using_when in skip_whens:
                             continue
 
                         # Check if all required fields are found
@@ -168,48 +169,107 @@ class Engine:
 
                         whens_requires.remove(key)
 
-                        # If all requirements are found, trigger callback
                         if len(whens_requires) == 0:
-                            triggered_whens.add(using_when)
-                            namespace = self._whens_namespaces.get(using_when)
-                            func = self._whens_funcs.get(using_when)
-                            data = mutations.get(namespace)
-                            state = self._states[namespace]
+                            # If all requirements are found, stop checking this
+                            skip_whens.add(using_when)
 
-                            if None in [namespace, func, data]:
+                            namespace = self._whens_namespaces.get(using_when)
+                            data = mutations.get(namespace)
+                            if None in [namespace, data]:
+                                continue
+
+                            # Check if conditions match mutation
+                            trigger_when = True
+                            for when_key, when_value in using_when.items():
+                                when_path = when_key.split("__")
+                                pointer = data
+                                for wpath in when_path:
+                                    if not isinstance(pointer, dict):
+                                        eprint(f"Invalid path: {when_key}")
+                                        break
+
+                                    pointer = pointer.get(wpath)
+
+                                when_status = False
+
+                                # Value can be a function complex checks 
+                                if callable(when_value):
+                                    when_status = when_value(pointer)
+
+                                else:
+                                    when_status = pointer == when_value
+
+                                if not when_status:
+                                    trigger_when = False
+                                    break
+
+                            if not trigger_when:
+                                continue
+
+                            triggered_whens.add(using_when)
+                            state = self._states[namespace]
+                            func = self._whens_funcs.get(using_when)
+                            if func is None:
                                 continue
 
                             # Run callback using mutation data and state manager
                             func(data, state)
 
     def pre_process(self, callback, *args, **kwargs):
+        """
+        Anything that needs to be run before each new line is processed
+        """
         assert callable(callback), f"Expected function but got: {callback}"
         self._pre_callback = callback
         self._pre_args = args
         self._pre_kwargs = kwargs
 
     def post_process(self, callback, *args, **kwargs):
+        """
+        Anything that needs to be run after each new line is processed
+        """
         assert callable(callback), f"Expected function but got: {callback}"
         self._post_callback = callback
         self._post_args = args
         self._post_kwargs = kwargs
 
     def recv_with(self, callback, *args, **kwargs):
+        """
+        What to run against the source to receive data
+        """
         assert callable(callback), f"Expected function but got: {callback}"
         self._recv_callback = callback
         self._recv_args = args
         self._recv_kwargs = kwargs
 
     def stop(self):
+        """
+        Passes stop signal to event loop in run function
+        """
         self._running.set()
 
     def run(self):
+        """
+        The event loop that drives the engine
+        Will loop indefinitely until the stopped or gets an exception
+        """
         # Run until stopped
         while not self._running.is_set():
+            # Run pre callback before processing
             self._pre_callback(*self._pre_args, **self._pre_kwargs)
 
-            raw_text = self._recv_callback(self._source, *self._recv_args,
-                **self._recv_kwargs)
+            try:
+                # Extract raw text from source using recv callback
+                raw_text = self._recv_callback(self._source, *self._recv_args,
+                    **self._recv_kwargs)
+
+            except Exception as e:
+                # Any exception not handle by callback should break loop 
+                eprint(format_exc())
+                break
+
+            # Process raw text
             self.process(raw_text)
 
+            # Run post callback before processing
             self._post_callback(*self._post_args, **self._post_kwargs)
