@@ -40,8 +40,8 @@ def _join(line, state):
         if channel not in server.channels:
             _send(f"JOIN {channel}")
 
-_send("USER test 0 * :test")
-_send("NICK test321")
+_send(f"USER {NICK} 0 * :{NICK}")
+_send(f"NICK {NICK}")
 
 # Load ircstates as a state mutation
 events.use("ircstates", lambda raw: server.recv(raw))
