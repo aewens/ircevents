@@ -1,4 +1,4 @@
-# ircstates
+# ircevents
 
 [![Build Status](https://travis-ci.org/aewens/ircevents.svg?branch=master)](https://travis-ci.org/aewens/ircevents)
 
