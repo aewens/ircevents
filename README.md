@@ -6,7 +6,7 @@
 
 ### example code
 ```python
-import ircstates, ircevents, socket
+import ircstates, irctokens, ircevents, socket
 
 # Connection settings
 NICK = "nickname"
