@@ -159,7 +159,7 @@ class Engine:
         namespace = self._whens_namespaces.get(when)
         data = mutations.get(namespace)
         if None in [namespace, data]:
-            continue
+            return None
 
         trigger_when = True
 
