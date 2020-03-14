@@ -28,14 +28,32 @@ def get_class_name(obj):
     """
     return obj.__class__.__name__
 
+class StateManager:
+    """
+    Used as a proxy for getting/setting values for an object with limited scope
+    """
+
+    def __init__(self):
+        pass
+
+    def get(self, key):
+        getattr(self, key, None)
+
+    def set(self, key, value):
+        return setattr(self, key, value)
+
 class Engine:
+    """
+    The front facing interface to use for handling events
+    """
+
     def __init__(self, source):
-        """
-        """
         self._source = source
         self._using = set()
 
         self._recv_callback = noop
+
+        self._states = defaultdict(lambda: StateManager())
 
         self._namespaces = set()
         self._whens = set()
@@ -135,4 +153,14 @@ class Engine:
 
                         # If all requirements are found, trigger callback
                         if len(whens_requires) == 0:
-                            triggered_whens.add(using_whens)
+                            triggered_whens.add(using_when)
+                            namespace = self._whens_namespaces.get(using_when)
+                            func = self._whens_funcs.get(using_when)
+                            data = mutations.get(namespace)
+                            state = self._states[namespace]
+
+                            if None in [namespace, func, data]:
+                                continue
+
+                            # Run callback using mutation data and state manager
+                            func(data, state)
