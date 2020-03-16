@@ -68,7 +68,7 @@ class Engine:
         self._mutations = dict()
 
         self._namespaces = set()
-        self._whens = set()
+        self._whens = dict()
         self._whens_funcs = dict()
         self._whens_namespaces = dict()
         self._whens_map = defaultdict(set)
@@ -101,9 +101,18 @@ class Engine:
         """
 
         for using in self._using:
-            mutation = using.callback(raw)
-            self._mutations[using.namespace] = mutation 
-            yield (using, mutation)
+            mutations = using.callback(raw)
+
+            not_iterable = [
+                isinstance(mutations, (str, bytes)),
+                not isinstance(mutations, Iterable)
+            ]
+            if any(not_iterable):
+                mutations = [mutations]
+
+            self._mutations[using.namespace] = mutations
+            for mutation in mutations:
+                yield (using, mutation)
 
     def _process_mutations(self, raw, requires, skip_whens):
         """
@@ -118,48 +127,39 @@ class Engine:
                         if using_when in skip_whens:
                             continue
 
-                        self._process_when(using_when, requires)
+                        when = self._whens.get(using_when)
+                        if when is None:
+                            return None
 
-    def _process_when(self, when, requires):
-        """
-        Determines if required keys are present to check callback
-        If so, will run the callback with the mutation and namespace state
-        """
+                        when_requires = requires.get(using_when)
+                        if when_requires is None:
+                            requires[using_when] = set(when._fields)
+                            when_requires = requires.get(using_when)
 
-        # Check if all required fields are found
-        whens_requires = requires.get(when)
-        if whens_requires is None:
-            requires[whens] = set(self._whens._fields)
-            whens_requires = requires.get(whens)
+                        # Check if all required fields are found
+                        when_requires.remove(key)
+                        if len(whens_requires) > 0:
+                            continue
 
-        whens_requires.remove(key)
-        if len(whens_requires) > 0:
-            return None
+                        # If all requirements are found, stop checking this
+                        skip_whens.add(using_when)
 
-        triggered = self._check_when(when)
-        if not triggered:
-            return None
+                        triggered = self._check_when(when)
+                        if not triggered:
+                            continue
 
-        state = self._states[namespace]
-        func = self._whens_funcs.get(when)
-        if func is None:
-            return None
+                        state = self._states[namespace]
+                        func = self._whens_funcs.get(when_key)
+                        if func is None:
+                            return None
 
-        # Run callback using mutation data and state manager
-        func(data, state)
+                        # Run callback using mutation data and state manager
+                        func(data, state)
 
     def _check_when(self, when):
         """
         Checks if mutation state will trigger callback
         """
-
-        # If all requirements are found, stop checking this
-        skip_whens.add(when)
-
-        namespace = self._whens_namespaces.get(when)
-        data = mutations.get(namespace)
-        if None in [namespace, data]:
-            return None
 
         trigger_when = True
 
@@ -233,7 +233,7 @@ class Engine:
         # Extract unique name
         whens_name = get_class_name(whens)
 
-        self._whens.add(whens)
+        self._whens[whens_name] = whens
 
         # Map name to namespace
         self._whens_namespaces[whens_name] = namespace
@@ -323,13 +323,7 @@ class Engine:
                 break
 
             # Process received data
-            if isinstance(recv_data, Iterable):
-                # If iterable, iterate over lines
-                for recv in recv_data:
-                    self.process(recv)
-
-            else:
-                self.process(recv_data)
+            self.process(recv_data)
 
             # Run post callback before processing
             self._post_callback(self._source, *self._post_args,
