@@ -135,7 +135,7 @@ class Engine:
         for (using, mutation) in self._apply_mutations(raw):
             # Run now if always run key is set
             for ar_when in self._whens_always_run:
-                if ar_when in self.skip_whens:
+                if ar_when in skip_whens:
                     continue
 
                 skip_whens.add(ar_when)
