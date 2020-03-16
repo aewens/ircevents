@@ -38,10 +38,10 @@ class StateManager:
         pass
 
     def get(self, key, default=None):
-        getattr(self, key, default)
+        return getattr(self, key, default)
 
     def set(self, key, value):
-        return setattr(self, key, value)
+        setattr(self, key, value)
 
 class Engine:
     """
