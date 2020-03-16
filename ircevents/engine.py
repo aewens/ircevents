@@ -132,40 +132,39 @@ class Engine:
 
         for (using, mutation) in self._apply_mutations(raw):
             for (key, value) in self._get_variables(mutation):
-                for using_whens in self._whens_map[key]:
-                    for using_when in using_whens:
-                        # Already been triggers, skip
-                        if using_when in skip_whens:
-                            continue
+                for using_when in self._whens_map[key]:
+                    # Already been triggers, skip
+                    if using_when in skip_whens:
+                        continue
 
-                        when = self._whens.get(using_when)
-                        if when is None:
-                            return None
+                    when = self._whens.get(using_when)
+                    if when is None:
+                        return None
 
+                    when_requires = requires.get(using_when)
+                    if when_requires is None:
+                        requires[using_when] = set(when._fields)
                         when_requires = requires.get(using_when)
-                        if when_requires is None:
-                            requires[using_when] = set(when._fields)
-                            when_requires = requires.get(using_when)
 
-                        # Check if all required fields are found
-                        when_requires.remove(key)
-                        if len(whens_requires) > 0:
-                            continue
+                    # Check if all required fields are found
+                    when_requires.remove(key)
+                    if len(whens_requires) > 0:
+                        continue
 
-                        # If all requirements are found, stop checking this
-                        skip_whens.add(using_when)
+                    # If all requirements are found, stop checking this
+                    skip_whens.add(using_when)
 
-                        triggered = self._check_when(when)
-                        if not triggered:
-                            continue
+                    triggered = self._check_when(when)
+                    if not triggered:
+                        continue
 
-                        state = self._states[namespace]
-                        func = self._whens_funcs.get(when_key)
-                        if func is None:
-                            return None
+                    state = self._states[namespace]
+                    func = self._whens_funcs.get(when_key)
+                    if func is None:
+                        return None
 
-                        # Run callback using mutation data and state manager
-                        func(data, state)
+                    # Run callback using mutation data and state manager
+                    func(data, state)
 
     def _check_when(self, when):
         """
