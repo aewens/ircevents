@@ -133,16 +133,18 @@ class Engine:
         """
 
         for (using, mutation) in self._apply_mutations(raw):
+            # Run now if always run key is set
+            for ar_when in self._whens_always_run:
+                if ar_when in self.skip_whens:
+                    continue
+
+                skip_whens.add(ar_when)
+                self._run_callback(ar_when, using, mutation)
+
             for (key, value) in self._get_variables(mutation):
                 for using_when in self._whens_map[key]:
                     # Already been triggers, skip
                     if using_when in skip_whens:
-                        continue
-
-                    # Run now if always run key is set
-                    if using_when in self._whens_always_run:
-                        skip_whens.add(using_when)
-                        self._run_callback(using_when, using, mutation)
                         continue
 
                     when = self._whens.get(using_when)
