@@ -1,4 +1,4 @@
-from .helpers import infinitedict, trap
+from .helpers import eprint
 
 from collections import namedtuple, defaultdict
 from collections.abc import Iterable
@@ -7,6 +7,7 @@ from threading import Thread, Event
 from queue import Queue, Empty
 from random import choices
 from string import ascii_lowercase
+from traceback import format_exc
 
 def noop(*args, **kwargs):
     """
