@@ -34,9 +34,13 @@ def _sent(source, state):
         for line in send_lines:
             print(f"< {line.format()}")
 
-@events.when(_always=True)
+@events.when(always_run=True)
 def _display(line, state):
     print(f"> {line.format()}")
+
+@events.when(command="PING")
+def _ping(line, state)
+    _send(f"PONG {line.params[0]}")
 
 @events.when(command="001")
 def _join(line, state):
@@ -44,6 +48,8 @@ def _join(line, state):
     for channel in channels:
         if channel not in server.channels:
             _send(f"JOIN {channel}")
+
+    state.set("joined_channels", True)
 
 # Load ircstates as a state mutation
 events.use("ircstates", lambda raw: server.recv(raw))

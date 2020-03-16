@@ -148,25 +148,25 @@ class Engine:
 
                     # Check if all required fields are found
                     when_requires.remove(key)
-                    if len(whens_requires) > 0:
+                    if len(when_requires) > 0:
                         continue
 
                     # If all requirements are found, stop checking this
                     skip_whens.add(using_when)
 
-                    triggered = self._check_when(when)
+                    triggered = self._check_when(when, mutation)
                     if not triggered:
                         continue
 
-                    state = self._states[namespace]
-                    func = self._whens_funcs.get(when_key)
+                    state = self._states[using.namespace]
+                    func = self._whens_funcs.get(using_data)
                     if func is None:
                         return None
 
                     # Run callback using mutation data and state manager
-                    func(data, state)
+                    func(mutation, state)
 
-    def _check_when(self, when):
+    def _check_when(self, when, data):
         """
         Checks if mutation state will trigger callback
         """
@@ -174,21 +174,22 @@ class Engine:
         trigger_when = True
 
         # Use magic pair to always trigger callback
-        if when.get("always_run") is True:
+        if getattr(when, "always_run", None) is True:
             return trigger_when
 
         # Check if conditions match mutation
-        for when_key, when_value in when.items():
+        for when_key in when._fields:
             when_path = when_key.split("__")
             pointer = data
             for wpath in when_path:
-                if not isinstance(pointer, dict):
-                    eprint(f"Invalid path: {when_key}")
+                if not hasattr(pointer, wpath):
+                    eprint(f"Invalid path at '{wpath}' in {when_key}")
                     break
 
-                pointer = pointer.get(wpath)
+                pointer = getattr(pointer, wpath, None)
 
             when_status = False
+            when_value = getattr(when, when_key, None)
 
             # Value can be a function complex checks 
             if callable(when_value):
