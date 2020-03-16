@@ -210,7 +210,7 @@ class Engine:
         Defines the mutations that will be applied to the raw text in `process`
         """
 
-        Mutation = namedtuple("Mutation", ["name", "callback"])
+        Mutation = namedtuple("Mutation", ["namespace", "callback"])
         self._using.add(Mutation(namespace, callback))
         self._namespaces.add(namespace)
 
