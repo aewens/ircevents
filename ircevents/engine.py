@@ -64,9 +64,10 @@ class Engine:
         self._recv_args = tuple()
         self._recv_kwargs = dict()
 
-        self._states = defaultdict(lambda: StateManager())
-        self._mutations = dict()
+        self._global_state = StateManager()
+        self._states = defaultdict(self._state_factory)
 
+        self._mutations = dict()
         self._namespaces = set()
         self._whens = dict()
         self._whens_funcs = dict()
@@ -76,6 +77,15 @@ class Engine:
         self._running = Event()
         self._events = Queue()
         self._actions = Queue()
+
+    def _state_factory(self):
+        """
+        Create state manager instances linked to global state manager
+        """
+
+        manager = StateManager()
+        manager.set("_global", self._global_state)
+        return manager
 
     def _get_variables(self, obj):
         """
@@ -308,14 +318,17 @@ class Engine:
 
         # Run until stopped
         while not self._running.is_set():
+            # Let callbacks write to global state
+            state = self._global_state
+
             # Run pre callback before processing
-            self._pre_callback(self._source, *self._pre_args,
+            self._pre_callback(self._source, state, *self._pre_args,
                 **self._pre_kwargs)
 
             try:
                 # Extract receive data from source using recv callback
-                recv_data = self._recv_callback(self._source, *self._recv_args,
-                    **self._recv_kwargs)
+                recv_data = self._recv_callback(self._source, state,
+                    *self._recv_args, **self._recv_kwargs)
 
             except Exception as e:
                 # Any exception not handle by callback should break loop 
@@ -326,5 +339,5 @@ class Engine:
             self.process(recv_data)
 
             # Run post callback before processing
-            self._post_callback(self._source, *self._post_args,
+            self._post_callback(self._source, state, *self._post_args,
                 **self._post_kwargs)

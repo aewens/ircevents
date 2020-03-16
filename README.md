@@ -23,11 +23,16 @@ def _send(text):
     line = irctokens.tokenise(text)
     server.send(line)
 
-def _sent(s):
+def _sent(source, state):
+    if not state.get("init"):
+        state.set("init", True)
+        _send(f"USER {NICK} 0 * :{NICK}")
+        _send(f"NICK {NICK}")
+
     while server.pending():
-        send_lines = server.sent(s.send(server.pending()))
+        send_lines = server.sent(source.send(server.pending()))
         for line in send_lines:
-            print(f"> {line.format()}")
+            print(f"< {line.format()}")
 
 @events.when(_always=True)
 def _display(line, state):
@@ -40,14 +45,11 @@ def _join(line, state):
         if channel not in server.channels:
             _send(f"JOIN {channel}")
 
-_send(f"USER {NICK} 0 * :{NICK}")
-_send(f"NICK {NICK}")
-
 # Load ircstates as a state mutation
 events.use("ircstates", lambda raw: server.recv(raw))
 
 # Events will be received using 1024 bytes from socket
-events.recv_with(lambda s: s.recv(1024))
+events.recv_with(lambda source, state: source.recv(1024))
 
 # Before processing new data, send queued data to server
 events.pre_process(_sent)
