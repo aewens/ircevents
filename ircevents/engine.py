@@ -74,6 +74,8 @@ class Engine:
         self._whens_funcs = dict()
         self._whens_namespaces = dict()
         self._whens_map = defaultdict(set)
+        self._whens_always_run = set()
+        self._always_run_key = "always_run"
 
         self._running = Event()
         self._events = Queue()
@@ -137,6 +139,12 @@ class Engine:
                     if using_when in skip_whens:
                         continue
 
+                    # Run now if always run key is set
+                    if using_when in self._whens_always_run:
+                        skip_whens.add(using_when)
+                        self._run_callback(using_when, using, mutation)
+                        continue
+
                     when = self._whens.get(using_when)
                     if when is None:
                         return None
@@ -158,13 +166,7 @@ class Engine:
                     if not triggered:
                         continue
 
-                    state = self._states[using.namespace]
-                    func = self._whens_funcs.get(using_data)
-                    if func is None:
-                        return None
-
-                    # Run callback using mutation data and state manager
-                    func(mutation, state)
+                    self._run_callback(using_when, using, mutation)
 
     def _check_when(self, when, data):
         """
@@ -174,7 +176,7 @@ class Engine:
         trigger_when = True
 
         # Use magic pair to always trigger callback
-        if getattr(when, "always_run", None) is True:
+        if getattr(when, self._always_run_key, None) is True:
             return trigger_when
 
         # Check if conditions match mutation
@@ -203,6 +205,15 @@ class Engine:
                 break
 
         return trigger_when
+
+    def _run_callback(self, when_key, using, data):
+        state = self._states[using.namespace]
+        func = self._whens_funcs.get(when_key)
+        if func is None:
+            return None
+
+        # Run callback using mutation data and state manager
+        func(data, state)
 
     def ns_get(self, namespace, key, default=None):
         """
@@ -251,6 +262,9 @@ class Engine:
 
         # Map keys to name to optimize processing time
         for when_key in whens._fields:
+            if when_key == self._always_run_key:
+                self._whens_always_run.add(whens_name)
+
             self._whens_map[when_key].add(whens_name)
 
         def decorator_when(func):
